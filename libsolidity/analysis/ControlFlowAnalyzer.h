@@ -19,6 +19,7 @@
 #pragma once
 
 #include <libsolidity/analysis/ControlFlowGraph.h>
+#include <liblangutil/ErrorReporter.h>
 #include <set>
 
 namespace solidity::frontend
@@ -33,16 +34,21 @@ public:
 	bool analyze(ASTNode const& _astRoot);
 
 	bool visit(FunctionDefinition const& _function) override;
+	bool visit(ContractDefinition const& _contract) override;
 
 private:
+	void analyze(FunctionDefinition const& _function, ContractDefinition const* _contract = nullptr);
 	/// Checks for uninitialized variable accesses in the control flow between @param _entry and @param _exit.
-	void checkUninitializedAccess(CFGNode const* _entry, CFGNode const* _exit, bool _emptyBody) const;
+	void checkUninitializedAccess(CFGNode const* _entry, CFGNode const* _exit, bool _emptyBody, FunctionDefinition const& _function, ContractDefinition const* _contract);
 	/// Checks for unreachable code, i.e. code ending in @param _exit, @param _revert or @param _transactionReturn
 	/// that can not be reached from @param _entry.
-	void checkUnreachable(CFGNode const* _entry, CFGNode const* _exit, CFGNode const* _revert, CFGNode const* _transactionReturn) const;
+	void checkUnreachable(CFGNode const* _entry, CFGNode const* _exit, CFGNode const* _revert, CFGNode const* _transactionReturn);
 
 	CFG const& m_cfg;
 	langutil::ErrorReporter& m_errorReporter;
+
+	std::set<langutil::SourceLocation> m_previousUnreachable;
+	std::set<VariableDeclaration const*> m_previousVariableWarnings;
 };
 
 }

@@ -41,6 +41,9 @@ public:
 	);
 
 private:
+	// Initializes a function flow object with nodes created using `_nodeContainer`
+	static std::unique_ptr<FunctionFlow> initFunctionFlow(CFG::NodeContainer& _nodeContainer);
+
 	explicit ControlFlowBuilder(
 		CFG::NodeContainer& _nodeContainer,
 		FunctionFlow const& _functionFlow

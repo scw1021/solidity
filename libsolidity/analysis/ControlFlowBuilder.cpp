@@ -20,12 +20,17 @@
 #include <libyul/AST.h>
 #include <libyul/backends/evm/EVMDialect.h>
 
+#include <libsolutil/Algorithms.h>
+
 using namespace solidity;
 using namespace solidity::langutil;
 using namespace solidity::frontend;
 using namespace std;
 
-ControlFlowBuilder::ControlFlowBuilder(CFG::NodeContainer& _nodeContainer, FunctionFlow const& _functionFlow):
+ControlFlowBuilder::ControlFlowBuilder(
+	CFG::NodeContainer& _nodeContainer,
+	FunctionFlow const& _functionFlow
+):
 	m_nodeContainer(_nodeContainer),
 	m_currentNode(_functionFlow.entry),
 	m_returnNode(_functionFlow.exit),
@@ -34,17 +39,22 @@ ControlFlowBuilder::ControlFlowBuilder(CFG::NodeContainer& _nodeContainer, Funct
 {
 }
 
-
-unique_ptr<FunctionFlow> ControlFlowBuilder::createFunctionFlow(
-	CFG::NodeContainer& _nodeContainer,
-	FunctionDefinition const& _function
-)
+unique_ptr<FunctionFlow> ControlFlowBuilder::initFunctionFlow(CFG::NodeContainer& _nodeContainer)
 {
 	auto functionFlow = make_unique<FunctionFlow>();
 	functionFlow->entry = _nodeContainer.newNode();
 	functionFlow->exit = _nodeContainer.newNode();
 	functionFlow->revert = _nodeContainer.newNode();
 	functionFlow->transactionReturn = _nodeContainer.newNode();
+	return functionFlow;
+}
+
+unique_ptr<FunctionFlow> ControlFlowBuilder::createFunctionFlow(
+	CFG::NodeContainer& _nodeContainer,
+	FunctionDefinition const& _function
+)
+{
+	unique_ptr<FunctionFlow> functionFlow = initFunctionFlow(_nodeContainer);
 	ControlFlowBuilder builder(_nodeContainer, *functionFlow);
 	builder.appendControlFlow(_function);
 
@@ -287,6 +297,11 @@ bool ControlFlowBuilder::visit(FunctionCall const& _functionCall)
 				m_currentNode = nextNode;
 				return false;
 			}
+			case FunctionType::Kind::Internal:
+			{
+				m_currentNode->functionCalls.emplace_back(&_functionCall);
+				break;;
+			}
 			default:
 				break;
 		}
@@ -323,6 +338,9 @@ bool ControlFlowBuilder::visit(ModifierInvocation const& _modifierInvocation)
 
 bool ControlFlowBuilder::visit(FunctionDefinition const& _functionDefinition)
 {
+	if (!_functionDefinition.isImplemented())
+		return false;
+
 	for (auto const& parameter: _functionDefinition.parameters())
 		appendControlFlow(*parameter);
 
