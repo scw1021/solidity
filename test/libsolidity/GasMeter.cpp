@@ -137,7 +137,11 @@ BOOST_AUTO_TEST_CASE(store_keccak256)
 			}
 		}
 	)";
-	testCreationTimeGas(sourceCode);
+	testCreationTimeGas(
+		sourceCode,
+		// TODO change the tolerance after evmone supports Berlin gas costs
+		m_evmVersion < langutil::EVMVersion::berlin() ? u256(0) : u256(2500)
+	);
 }
 
 BOOST_AUTO_TEST_CASE(updating_store)
@@ -171,7 +175,12 @@ BOOST_AUTO_TEST_CASE(branches)
 		}
 	)";
 	testCreationTimeGas(sourceCode, 1);
-	testRunTimeGas("f(uint256)", vector<bytes>{encodeArgs(2), encodeArgs(8)}, 1);
+	testRunTimeGas(
+		"f(uint256)",
+		vector<bytes>{encodeArgs(2), encodeArgs(8)},
+		// TODO change the tolerance after evmone supports Berlin gas costs
+		m_evmVersion < langutil::EVMVersion::berlin() ? u256(1) : u256(3600)
+	);
 }
 
 BOOST_AUTO_TEST_CASE(function_calls)
@@ -192,7 +201,12 @@ BOOST_AUTO_TEST_CASE(function_calls)
 		}
 	)";
 	testCreationTimeGas(sourceCode);
-	testRunTimeGas("f(uint256)", vector<bytes>{encodeArgs(2), encodeArgs(8)});
+	testRunTimeGas(
+		"f(uint256)",
+		vector<bytes>{encodeArgs(2), encodeArgs(8)},
+		// TODO change the tolerance after evmone supports Berlin gas costs
+		m_evmVersion < langutil::EVMVersion::berlin() ? u256(0) : u256(3600)
+	);
 }
 
 BOOST_AUTO_TEST_CASE(multiple_external_functions)
@@ -213,8 +227,18 @@ BOOST_AUTO_TEST_CASE(multiple_external_functions)
 		}
 	)";
 	testCreationTimeGas(sourceCode);
-	testRunTimeGas("f(uint256)", vector<bytes>{encodeArgs(2), encodeArgs(8)});
-	testRunTimeGas("g(uint256)", vector<bytes>{encodeArgs(2)});
+	testRunTimeGas(
+		"f(uint256)",
+		vector<bytes>{encodeArgs(2), encodeArgs(8)},
+		// TODO change the tolerance after evmone supports Berlin gas costs
+		m_evmVersion < langutil::EVMVersion::berlin() ? u256(0) : u256(3600)
+	);
+	testRunTimeGas(
+		"g(uint256)",
+		vector<bytes>{encodeArgs(2)},
+		// TODO change the tolerance after evmone supports Berlin gas costs
+		m_evmVersion < langutil::EVMVersion::berlin() ? u256(0) : u256(3600)
+	);
 }
 
 BOOST_AUTO_TEST_CASE(exponent_size)
@@ -277,7 +301,12 @@ BOOST_AUTO_TEST_CASE(regular_functions_exclude_fallback)
 		}
 	)";
 	testCreationTimeGas(sourceCode);
-	testRunTimeGas("x()", vector<bytes>{encodeArgs()});
+	testRunTimeGas(
+		"x()",
+		vector<bytes>{encodeArgs()},
+		// TODO change the tolerance after evmone supports Berlin gas costs
+		m_evmVersion < langutil::EVMVersion::berlin() ? u256(0) : u256(3600)
+	);
 }
 
 BOOST_AUTO_TEST_CASE(complex_control_flow)
