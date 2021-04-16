@@ -66,6 +66,31 @@ BOOST_AUTO_TEST_CASE(TemporaryDirectory_should_delete_its_directory_even_if_not_
 	BOOST_TEST(!fs::exists(dirPath / "test-file.txt"));
 }
 
+BOOST_AUTO_TEST_CASE(TemporaryWorkingDirectory_should_change_and_restore_working_directory)
+{
+	fs::path originalWorkingDirectory = fs::current_path();
+
+	try
+	{
+		{
+			TemporaryDirectory tempDir("temporary-directory-test-");
+			assert(fs::current_path() == originalWorkingDirectory);
+			assert(tempDir.path() != originalWorkingDirectory);
+
+			TemporaryWorkingDirectory tempWorkDir(tempDir.path());
+
+			BOOST_TEST(fs::current_path() == tempDir.path());
+		}
+		BOOST_TEST(fs::current_path() == originalWorkingDirectory);
+
+		fs::current_path(originalWorkingDirectory);
+	}
+	catch (...)
+	{
+		fs::current_path(originalWorkingDirectory);
+	}
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 }
