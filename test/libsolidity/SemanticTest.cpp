@@ -58,6 +58,7 @@ SemanticTest::SemanticTest(
 	m_sources(m_reader.sources()),
 	m_lineOffset(m_reader.lineNumber()),
 	m_builtins(makeBuiltins()),
+	m_sideEffectHooks(makeSideEffectHooks()),
 	m_enforceViaYul(_enforceViaYul),
 	m_enforceCompileToEwasm(_enforceCompileToEwasm),
 	m_enforceGasCost(_enforceGasCost),
@@ -127,10 +128,20 @@ map<string, Builtin> SemanticTest::makeBuiltins() const
 {
 	return {
 		{
-			"smokeTest",
+			"isoltest_builtin_test",
 			[](FunctionCall const&) -> optional<bytes>
 			{
 				return util::toBigEndian(u256(0x1234));
+			}
+		},
+		{
+			"isoltest_side_effects_test",
+			[](FunctionCall const& _call) -> optional<bytes>
+			{
+				if (_call.arguments.parameters.empty())
+					return util::toBigEndian(0);
+				else
+					return _call.arguments.rawBytes();
 			}
 		},
 		{
@@ -151,8 +162,25 @@ map<string, Builtin> SemanticTest::makeBuiltins() const
 			[this](FunctionCall const& _call) -> optional<bytes>
 			{
 				soltestAssert(_call.arguments.parameters.empty(), "No arguments expected.");
-				  return toBigEndian(u256(storageEmpty(m_contractAddress) ? 1 : 0));
-		 	}
+				return toBigEndian(u256(storageEmpty(m_contractAddress) ? 1 : 0));
+			}
+		},
+	};
+}
+
+vector<SideEffectHook> SemanticTest::makeSideEffectHooks() const
+{
+	return {
+		[](FunctionCall const& _call) -> vector<string>
+		{
+			if (_call.signature.find("isoltest_side_effects") != string::npos)
+			{
+				vector<string> result;
+				for (auto const& argument: _call.arguments.parameters)
+					result.emplace_back(toHex(argument.rawBytes));
+				return result;
+			}
+			return {};
 		}
 	};
 }
@@ -312,6 +340,13 @@ TestCase::TestResult SemanticTest::runTest(
 			test.setRawBytes(move(output));
 			test.setContractABI(m_compiler.contractABI(m_compiler.lastContractName(m_sources.mainSourceFile)));
 		}
+
+		vector<string> effects;
+		for (SideEffectHook const& hook: m_sideEffectHooks)
+			effects += hook(test.call());
+		test.setSideEffects(move(effects));
+
+		success &= test.call().expectedSideEffects == test.call().actualSideEffects;
 	}
 
 	if (!m_testCaseWantsYulRun && _isYulRun)

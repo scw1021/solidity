@@ -23,6 +23,7 @@
 #include <string>
 #include <tuple>
 #include <boost/test/unit_test.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <liblangutil/Exceptions.h>
 #include <test/ExecutionFramework.h>
 
@@ -42,11 +43,10 @@ using Mode = FunctionCall::DisplayMode;
 namespace
 {
 
-vector<FunctionCall> parse(string const& _source)
+vector<FunctionCall> parse(string const& _source, std::map<std::string, Builtin> const& _builtins = {})
 {
 	istringstream stream{_source, ios_base::out};
-	TestFileParser parser{stream, {}};
-	return parser.parseFunctionCalls(0);
+	return TestFileParser{stream, _builtins}.parseFunctionCalls(0);
 }
 
 void testFunctionCall(
@@ -956,6 +956,102 @@ BOOST_AUTO_TEST_CASE(library)
 		false,
 		true
 	);
+}
+
+BOOST_AUTO_TEST_CASE(call_effects)
+{
+	std::map<std::string, Builtin> builtins;
+	builtins["builtin_returning_call_effect"] = [](FunctionCall const&) -> std::optional<bytes>
+	{
+		return util::toBigEndian(u256(0x1234));
+	};
+	builtins["builtin_returning_call_effect_no_ret"] = [](FunctionCall const&) -> std::optional<bytes>
+	{
+		return {};
+	};
+
+	char const* source = R"(
+		// builtin_returning_call_effect -> 1
+		// ~ bla
+		// ~ bla bla
+		// ~ bla bla bla
+	)";
+	vector<FunctionCall> calls = parse(source, builtins);
+	BOOST_REQUIRE_EQUAL(calls.size(), 1);
+	BOOST_REQUIRE_EQUAL(calls[0].expectedSideEffects.size(), 3);
+	BOOST_REQUIRE_EQUAL(boost::trim_copy(calls[0].expectedSideEffects[0]), "bla");
+	BOOST_REQUIRE_EQUAL(boost::trim_copy(calls[0].expectedSideEffects[1]), "bla bla");
+	BOOST_REQUIRE_EQUAL(boost::trim_copy(calls[0].expectedSideEffects[2]), "bla bla bla");
+	source = R"(
+		// builtin_returning_call_effect -> 1
+		// ~ bla
+		// ~ bla bla
+		// builtin_returning_call_effect -> 2
+		// ~ bla bla bla
+		// builtin_returning_call_effect -> 3
+	)";
+	calls = parse(source, builtins);
+	BOOST_REQUIRE_EQUAL(calls.size(), 3);
+	BOOST_REQUIRE_EQUAL(calls[0].expectedSideEffects.size(), 2);
+	BOOST_REQUIRE_EQUAL(calls[1].expectedSideEffects.size(), 1);
+	BOOST_REQUIRE_EQUAL(calls[2].expectedSideEffects.size(), 0);
+	BOOST_REQUIRE_EQUAL(boost::trim_copy(calls[0].expectedSideEffects[0]), "bla");
+	BOOST_REQUIRE_EQUAL(boost::trim_copy(calls[0].expectedSideEffects[1]), "bla bla");
+	BOOST_REQUIRE_EQUAL(boost::trim_copy(calls[1].expectedSideEffects[0]), "bla bla bla");
+	source = R"(
+		// builtin_returning_call_effect -> 1
+		// ~ bla
+		// ~ bla bla bla
+		// ~ abc ~ def ~ ghi
+		// ~ ~ ~
+	)";
+	calls = parse(source, builtins);
+	BOOST_REQUIRE_EQUAL(calls.size(), 1);
+	BOOST_REQUIRE_EQUAL(calls[0].expectedSideEffects.size(), 4);
+	BOOST_REQUIRE_EQUAL(boost::trim_copy(calls[0].expectedSideEffects[0]), "bla");
+	BOOST_REQUIRE_EQUAL(boost::trim_copy(calls[0].expectedSideEffects[1]), "bla bla bla");
+	BOOST_REQUIRE_EQUAL(boost::trim_copy(calls[0].expectedSideEffects[2]), "abc ~ def ~ ghi");
+	BOOST_REQUIRE_EQUAL(boost::trim_copy(calls[0].expectedSideEffects[3]), "~ ~");
+	source = R"(
+		// builtin_returning_call_effect_no_ret ->
+		// ~ hello world
+	)";
+	calls = parse(source, builtins);
+	BOOST_REQUIRE_EQUAL(calls.size(), 1);
+	BOOST_REQUIRE_EQUAL(calls[0].expectedSideEffects.size(), 1);
+	BOOST_REQUIRE_EQUAL(boost::trim_copy(calls[0].expectedSideEffects[0]), "hello world");
+	source = R"(
+		// builtin_returning_call_effect -> 1
+		// ~
+	)";
+	calls = parse(source, builtins);
+	BOOST_REQUIRE_EQUAL(calls.size(), 1);
+	BOOST_REQUIRE_EQUAL(calls[0].expectedSideEffects.size(), 1);
+	BOOST_REQUIRE_EQUAL(boost::trim_copy(calls[0].expectedSideEffects[0]), "");
+	source = R"(
+		// builtin_returning_call_effect -> 1 # a comment #
+		// ~ hello world
+	)";
+	calls = parse(source, builtins);
+	BOOST_REQUIRE_EQUAL(calls.size(), 1);
+	BOOST_REQUIRE_EQUAL(calls[0].expectedSideEffects.size(), 1);
+	BOOST_REQUIRE_EQUAL(boost::trim_copy(calls[0].expectedSideEffects[0]), "hello world");
+	source = R"(
+		// builtin_returning_call_effect_no_ret -> # another comment #
+		// ~ hello world
+	)";
+	calls = parse(source, builtins);
+	BOOST_REQUIRE_EQUAL(calls.size(), 1);
+	BOOST_REQUIRE_EQUAL(calls[0].expectedSideEffects.size(), 1);
+	BOOST_REQUIRE_EQUAL(boost::trim_copy(calls[0].expectedSideEffects[0]), "hello world");
+	source = R"(
+		// builtin_returning_call_effect_no_ret # another comment #
+		// ~ hello world
+	)";
+	calls = parse(source, builtins);
+	BOOST_REQUIRE_EQUAL(calls.size(), 1);
+	BOOST_REQUIRE_EQUAL(calls[0].expectedSideEffects.size(), 1);
+	BOOST_REQUIRE_EQUAL(boost::trim_copy(calls[0].expectedSideEffects[0]), "hello world");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

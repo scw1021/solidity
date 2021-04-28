@@ -42,7 +42,7 @@ using Token = soltest::Token;
 
 char TestFileParser::Scanner::peek() const noexcept
 {
-	if (std::distance(m_char, m_line.end()) < 2)
+	if (std::distance(m_char, m_source.end()) < 2)
 		return '\0';
 
 	auto next = m_char;
@@ -97,7 +97,6 @@ vector<solidity::frontend::test::FunctionCall> TestFileParser::parseFunctionCall
 					else
 					{
 						FunctionCall call;
-
 						if (accept(Token::Library, true))
 						{
 							expect(Token::Colon);
@@ -154,6 +153,9 @@ vector<solidity::frontend::test::FunctionCall> TestFileParser::parseFunctionCall
 								call.kind = FunctionCall::Kind::Constructor;
 						}
 
+						accept(Token::Newline, true);
+						call.expectedSideEffects = parseFunctionCallSideEffects();
+
 						calls.emplace_back(std::move(call));
 					}
 				}
@@ -167,6 +169,23 @@ vector<solidity::frontend::test::FunctionCall> TestFileParser::parseFunctionCall
 		}
 	}
 	return calls;
+}
+
+vector<string> TestFileParser::parseFunctionCallSideEffects()
+{
+	vector<string> result;
+	while (accept(Token::Tilde, false))
+	{
+		string effect = m_scanner.currentLiteral();
+		result.emplace_back(effect);
+
+		if (m_scanner.currentToken() == Token::Tilde)
+			m_scanner.scanNextToken();
+		if (m_scanner.currentToken() == Token::Newline)
+			m_scanner.scanNextToken();
+	}
+
+	return result;
 }
 
 bool TestFileParser::accept(Token _token, bool const _expect)
@@ -492,9 +511,10 @@ string TestFileParser::parseString()
 void TestFileParser::Scanner::readStream(istream& _stream)
 {
 	std::string line;
+	// TODO: std::getline(..) removes newlines '\n', if present. This could be improved.
 	while (std::getline(_stream, line))
-		m_line += line;
-	m_char = m_line.begin();
+		m_source += line;
+	m_char = m_source.begin();
 }
 
 void TestFileParser::Scanner::scanNextToken()
@@ -545,6 +565,10 @@ void TestFileParser::Scanner::scanNextToken()
 			else
 				selectToken(Token::Sub);
 			break;
+		case '~':
+			advance();
+			selectToken(Token::Tilde, readLine());
+			break;
 		case ':':
 			selectToken(Token::Colon);
 			break;
@@ -588,7 +612,7 @@ void TestFileParser::Scanner::scanNextToken()
 			}
 			else if (langutil::isWhiteSpace(current()))
 				selectToken(Token::Whitespace);
-			else if (isEndOfLine())
+			else if (isEndOfFile())
 			{
 				m_currentToken = Token::EOS;
 				m_currentLiteral = "";
@@ -599,6 +623,17 @@ void TestFileParser::Scanner::scanNextToken()
 		}
 	}
 	while (m_currentToken == Token::Whitespace);
+}
+
+string TestFileParser::Scanner::readLine()
+{
+	string effect;
+	while (!nextIsEof() && !nextIsNewLine())
+	{
+		advance();
+		effect += current();
+	}
+	return effect;
 }
 
 string TestFileParser::Scanner::scanComment()

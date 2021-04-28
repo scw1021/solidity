@@ -87,20 +87,21 @@ private:
 		std::string scanDecimalNumber();
 		std::string scanHexNumber();
 		std::string scanString();
+		std::string readLine();
 		char scanHexPart();
 
 	private:
 		/// Advances current position in the input stream.
 		void advance(unsigned n = 1)
 		{
-			solAssert(m_char != m_line.end(), "Cannot advance beyond end.");
+			solAssert(m_char != m_source.end(), "Cannot advance beyond end.");
 			m_char = std::next(m_char, n);
 		}
 
 		/// Returns the current character or '\0' if at end of input.
 		char current() const noexcept
 		{
-			if (m_char == m_line.end())
+			if (m_char == m_source.end())
 				return '\0';
 
 			return *m_char;
@@ -111,9 +112,17 @@ private:
 		char peek() const noexcept;
 
 		/// Returns true if the end of a line is reached, false otherwise.
-		bool isEndOfLine() const { return m_char == m_line.end(); }
+		bool isEndOfFile() const { return m_char == m_source.end(); }
 
-		std::string m_line;
+		/// Returns true if the next character is pointing to a new-line character, false otherwise.
+		/// Right now the scanner discards all newlines in TestFileParser::Scanner::readStream(..).
+		/// TODO: Fix this.
+		bool nextIsNewLine() const { return peek() == '/'; }
+
+		/// Returns true if the next character would be at (or beyond) the end of input, false otherwise.
+		bool nextIsEof() const { return peek() == '\0'; }
+
+		std::string m_source;
 		std::string::const_iterator m_char;
 
 		std::string m_currentLiteral;
@@ -176,6 +185,9 @@ private:
 
 	/// Parses the current string literal.
 	std::string parseString();
+
+	/// Parses the expected side effects of a function call execution.
+	std::vector<std::string> parseFunctionCallSideEffects();
 
 	/// Checks whether a builtin function with the given signature exist.
 	/// @returns true, if builtin found, false otherwise
