@@ -87,6 +87,7 @@ private:
 		std::string scanDecimalNumber();
 		std::string scanHexNumber();
 		std::string scanString();
+		std::string scanEffectString();
 		char scanHexPart();
 
 	private:
@@ -176,6 +177,9 @@ private:
 
 	/// Parses the current string literal.
 	std::string parseString();
+
+	/// Parses the expected side effects of a function call execution.
+	std::vector<std::string> parseFunctionCallSideEffects();
 
 	/// Checks whether a builtin function with the given signature exist.
 	/// @returns true, if builtin found, false otherwise
