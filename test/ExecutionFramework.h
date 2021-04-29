@@ -26,6 +26,7 @@
 #include <test/Common.h>
 #include <test/EVMHost.h>
 
+#include <libsolidity/util/SoltestTypes.h>
 #include <libsolidity/interface/OptimiserSettings.h>
 #include <libsolidity/interface/DebugSettings.h>
 
@@ -38,6 +39,11 @@
 #include <functional>
 
 #include <boost/test/unit_test.hpp>
+
+namespace solidity::frontend::test
+{
+struct LogRecord;
+} // namespace solidity::frontend::test
 
 namespace solidity::test
 {
@@ -241,6 +247,12 @@ public:
 		return result;
 	}
 
+	size_t numLogs() const;
+	size_t numLogTopics(size_t _logIdx) const;
+	util::h256 logTopic(size_t _logIdx, size_t _topicIdx) const;
+	util::h160 logAddress(size_t _logIdx) const;
+	bytes logData(size_t _logIdx) const;
+
 private:
 	template <class CppFunction, class... Args>
 	auto callCppAndEncodeResult(CppFunction const& _cppFunction, Args const&... _arguments)
@@ -272,11 +284,7 @@ protected:
 	bool storageEmpty(util::h160 const& _addr) const;
 	bool addressHasCode(util::h160 const& _addr) const;
 
-	size_t numLogs() const;
-	size_t numLogTopics(size_t _logIdx) const;
-	util::h256 logTopic(size_t _logIdx, size_t _topicIdx) const;
-	util::h160 logAddress(size_t _logIdx) const;
-	bytes logData(size_t _logIdx) const;
+	std::vector<solidity::frontend::test::LogRecord> recordedLogs() const;
 
 	langutil::EVMVersion m_evmVersion;
 	solidity::frontend::RevertStrings m_revertStrings = solidity::frontend::RevertStrings::Default;

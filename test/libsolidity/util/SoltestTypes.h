@@ -312,4 +312,26 @@ struct FunctionCall
 using Builtin = std::function<std::optional<bytes>(FunctionCall const&)>;
 using SideEffectHook = std::function<std::vector<std::string>(FunctionCall const&)>;
 
+/// LogRecord
+struct LogRecord
+{
+	size_t index;
+	/// The address of the account which created the log.
+	util::h160 creator;
+	/// The data attached to the log.
+	bytes data;
+	/// The log topics.
+	std::vector<util::h256> topics;
+	/// Equal operator.
+	bool operator==(const LogRecord& other) const noexcept
+	{
+		return creator == other.creator && data == other.data && topics == other.topics;
+	}
+
+	bool operator!=(const LogRecord& other) const noexcept
+	{
+		return !operator==(other);
+	}
+};
+
 }

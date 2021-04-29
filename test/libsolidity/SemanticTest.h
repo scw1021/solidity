@@ -30,6 +30,13 @@
 namespace solidity::frontend::test
 {
 
+struct EventInformation
+{
+	std::string signature;
+	std::vector<std::string> indexedTypes;
+	std::vector<std::string> nonIndexedTypes;
+};
+
 /**
  * Class that represents a semantic test (or end-to-end test) and allows running it as part of the
  * boost unit test environment or isoltest. It reads the Solidity source and an additional comment
@@ -82,6 +89,8 @@ private:
 	bool checkGasCostExpectation(TestFunctionCall& io_test, bool _compileViaYul) const;
 	std::map<std::string, Builtin> makeBuiltins() const;
 	std::vector<SideEffectHook> makeSideEffectHooks() const;
+	std::vector<std::string> eventSideEffectHook(FunctionCall const&) const;
+	std::optional<EventInformation> findEvent(util::h256 const& hash) const;
 	SourceMap m_sources;
 	std::size_t m_lineOffset;
 	std::vector<TestFunctionCall> m_tests;
@@ -99,6 +108,7 @@ private:
 	bool m_gasCostFailure = false;
 	bool m_enforceGasCost = false;
 	u256 m_enforceGasCostMinValue;
+	Json::Value m_currentContractABI{};
 };
 
 }
